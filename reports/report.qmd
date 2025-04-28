@@ -114,7 +114,7 @@ Create your own copy of WDI_Country containing just countries.
 
 # drop table
 execute_ddl(cnx,"""
-drop table if exists wdi_country;
+drop table if exists wdi_country_only;
 """)
 ```
 
@@ -248,13 +248,15 @@ SELECT
     `Country Code`, 
     `Short Name`, 
     `2-alpha code` AS country_abbr, 
-    `WB-2 code` AS country_wb_abbr, 
+    `WB-2 code` AS wb_abbr, 
     Region
-FROM wdi_country_only
-WHERE `2-alpha code` IS NOT NULL
-  AND `WB-2 code` IS NOT NULL
+FROM world_bank_data.wdi_country
+WHERE 
+    `2-alpha code` IS NOT NULL
+    AND `WB-2 code` IS NOT NULL
+    AND `2-alpha code` <> `WB-2 code`
 ORDER BY `Short Name`;
-""")
+""")  
 
 ```
 
@@ -310,6 +312,7 @@ execute_ddl(cnx,"""
 UPDATE wdi_country_only
 SET `Income Group` = 'High income'
 WHERE `Short Name` = 'Venezuela';
+COMMIT;
 """)
 
 
