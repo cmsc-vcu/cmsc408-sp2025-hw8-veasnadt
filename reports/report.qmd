@@ -91,12 +91,12 @@ List all non-countries.
 ## (skills: select, where)
 
 run_sql_and_return_html(cnx,"""
-SELECT
-  *
-FROM
+SELECT 
+  `Short Name`
+FROM 
   world_bank_data.wdi_country
-WHERE
-  region is NULL
+WHERE 
+  Region IS NULL
 """)
 ```
 
@@ -121,8 +121,6 @@ drop table if exists wdi_country;
 ```{python}
 # create table
 execute_ddl(cnx,"""
-DROP TABLE IF EXISTS
-  wdi_country_only
 CREATE TABLE 
   wdi_country_only 
 AS SELECT 
@@ -172,12 +170,9 @@ What are all unique values of region in the wdi_country table?
 ## (skills: select, aggregate, order by)
 
 run_sql_and_return_html(cnx,"""
-SELECT DISTINCT 
-  Region
-FROM 
-  world_bank_data.wdi_country
-ORDER BY 
-  Region;
+SELECT DISTINCT Region
+FROM wdi_country_only
+ORDER BY Region;
 """)
 
 ```
@@ -195,7 +190,7 @@ SELECT
   Region,
   COUNT(*) AS number_of_countries
 FROM 
-  world_bank_data.wdi_country
+  wdi_country_only
 GROUP BY 
   Region
 ORDER BY 
@@ -255,7 +250,7 @@ SELECT
     `2-alpha code` AS country_abbr, 
     `WB-2 code` AS country_wb_abbr, 
     Region
-FROM world_bank_data.wdi_country
+FROM wdi_country_only
 WHERE `2-alpha code` IS NOT NULL
   AND `WB-2 code` IS NOT NULL
 ORDER BY `Short Name`;
@@ -295,13 +290,10 @@ ORDER BY
 ## in the first column.
 
 run_sql_and_return_html(cnx,"""
-SELECT 
-    "Income Group" AS income_category,
-    COUNT(*) AS country_count
-FROM world_bank_data.wdi_country
-WHERE "Income Group" IS NOT NULL
-GROUP BY "Income Group"
-ORDER BY country_count DESC;
+SELECT `Short Name`
+FROM wdi_country_only
+WHERE `Income Group` IS NULL
+ORDER BY `Short Name`;
 """)
 
 ```
@@ -317,7 +309,7 @@ ORDER BY country_count DESC;
 execute_ddl(cnx,"""
 UPDATE wdi_country_only
 SET `Income Group` = 'High income'
-WHERE `Short Name` = 'Qatar';
+WHERE `Short Name` = 'Venezuela';
 """)
 
 
@@ -328,7 +320,7 @@ WHERE `Short Name` = 'Qatar';
 run_sql_and_return_html(cnx,"""
 SELECT `Short Name`, `Income Group`
 FROM wdi_country_only
-WHERE `Short Name` = 'Qatar';
+WHERE `Short Name` = 'Venezuela';
 """)
 
 ```
@@ -344,10 +336,10 @@ WHERE `Short Name` = 'Qatar';
 run_sql_and_return_html(cnx,"""
 SELECT 
     Region,
-    "Income Group" AS income_group,
+    `Income Group` AS income_group,
     COUNT(*) AS no_of_countries
 FROM wdi_country_only
-GROUP BY Region, "Income Group"
+GROUP BY Region, `Income Group`
 ORDER BY no_of_countries DESC;
 """)
 
@@ -465,27 +457,30 @@ ORDER BY `Short Name`;
 ## (skills: select, where, subqueries, joins)
 
 run_sql_and_return_html(cnx,"""
-WITH region_income AS (
-    SELECT DISTINCT Region, `Income Group`
+WITH region_income_existing AS (
+    SELECT DISTINCT
+        Region,
+        `Income Group`
     FROM wdi_country_only
+    WHERE Region IS NOT NULL
 ),
-all_combinations AS (
+all_region_income_pairs AS (
     SELECT 
-        region.Region,
-        income_group.income_cat
-    FROM 
-        (SELECT DISTINCT Region FROM wdi_country_only WHERE Region IS NOT NULL) AS region
-    CROSS JOIN 
-        (SELECT DISTINCT `Income Group` AS income_cat FROM wdi_country_only) AS income_group
+        r.Region,
+        i.`Income Group`
+    FROM
+        (SELECT DISTINCT Region FROM wdi_country_only WHERE Region IS NOT NULL) r
+    CROSS JOIN
+        (SELECT DISTINCT `Income Group` FROM wdi_country_only WHERE `Income Group` IS NOT NULL) i
 )
 SELECT 
     a.Region,
-    a.income_cat
-FROM all_combinations a
-LEFT JOIN region_income ri
-  ON a.Region = ri.Region AND a.income_cat = ri.`Income Group`
-WHERE ri.Region IS NULL
-ORDER BY a.Region, a.income_cat;
+    a.`Income Group`
+FROM all_region_income_pairs a
+LEFT JOIN region_income_existing e
+  ON a.Region = e.Region AND a.`Income Group` = e.`Income Group`
+WHERE e.Region IS NULL
+ORDER BY a.Region, a.`Income Group`;
 """)
 
 ```
@@ -602,18 +597,20 @@ WITH base AS (
         `Income Group` AS income_category,
         COUNT(*) AS country_count
     FROM wdi_country_only
+    WHERE `Income Group` IS NOT NULL
     GROUP BY `Income Group`
 ),
 overall_total AS (
-    SELECT SUM(country_count) AS total_countries
-    FROM base
+    SELECT COUNT(*) AS total_countries
+    FROM wdi_country_only
+    WHERE `Income Group` IS NOT NULL
 )
 SELECT 
-    income_category,
-    country_count,
-    ROUND(100.0 * country_count / total_countries, 2) AS pct_of_total
-FROM base, overall_total
-ORDER BY income_category;
+    b.income_category,
+    b.country_count,
+    ROUND(100.0 * b.country_count / o.total_countries, 1) AS pct_of_total
+FROM base b, overall_total o
+ORDER BY b.income_category;
 """)
 
 ```
