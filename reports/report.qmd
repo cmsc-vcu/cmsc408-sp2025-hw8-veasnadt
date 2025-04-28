@@ -594,7 +594,7 @@ ORDER BY Region;
 
 ## (This is much simpler than task 20!)
 
-run_sql_and_return_html(cnx,"""
+run_sql_and_return_html(cnx, """
 WITH base AS (
     SELECT 
         `Income Group` AS income_category,
@@ -611,9 +611,20 @@ overall_total AS (
 SELECT 
     b.income_category,
     b.country_count,
+    o.total_countries,
     ROUND(100.0 * b.country_count / o.total_countries, 1) AS pct_of_total
 FROM base b, overall_total o
-ORDER BY b.income_category;
+
+UNION ALL
+
+SELECT 
+    'All Income Groups' AS income_category,
+    o.total_countries AS country_count,
+    o.total_countries AS total_countries,
+    100.0 AS pct_of_total
+FROM overall_total o
+
+ORDER BY income_category;
 """)
 
 ```
